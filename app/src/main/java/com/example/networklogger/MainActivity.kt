@@ -29,6 +29,8 @@ import com.github.mikephil.charting.data.LineDataSet
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.ExistingPeriodicWorkPolicy
 import java.util.concurrent.TimeUnit
+import android.widget.Toast
+import android.os.Environment
 
 class MainActivity : AppCompatActivity() {
 
@@ -44,6 +46,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rootStatusText: TextView
 
     private lateinit var loggingDurationText: TextView
+
+    private lateinit var networkLogPathText: TextView
+    private lateinit var backgroundLogPathText: TextView
 
     private lateinit var telephonyManager: TelephonyManager
 
@@ -120,6 +125,29 @@ class MainActivity : AppCompatActivity() {
         cellInfoText = findViewById(R.id.cellInfoText)
         rootStatusText = findViewById(R.id.rootStatusText)
 
+        networkLogPathText =
+            findViewById(R.id.networkLogPathText)
+
+        backgroundLogPathText =
+            findViewById(R.id.backgroundLogPathText)
+
+        val downloadsFolder =
+            Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS
+            )
+
+        val networkLogPath =
+            File(downloadsFolder, "network_logs.csv").absolutePath
+
+        val backgroundLogPath =
+            File(downloadsFolder, "background_logs.csv").absolutePath
+
+        networkLogPathText.text =
+            "Network Log:\n$networkLogPath"
+
+        backgroundLogPathText.text =
+            "Background Log:\n$backgroundLogPath"
+
         loggingDurationText =
             findViewById(R.id.loggingDurationText)
 
@@ -145,6 +173,12 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("RootCheck", "Device Status: $rootStatus")
 
+        networkLogPathText.text =
+            "network_logs.csv:\n/storage/emulated/0/Download/network_logs.csv"
+
+        backgroundLogPathText.text =
+            "background_logs.csv:\n/storage/emulated/0/Download/background_logs.csv"
+
         startButton.setOnClickListener {
             if (!isLogging) {
 
@@ -152,6 +186,11 @@ class MainActivity : AppCompatActivity() {
                     System.currentTimeMillis()
 
                 isLogging = true
+                Toast.makeText(
+                    this,
+                    "Logs are being saved in Download folder",
+                    Toast.LENGTH_LONG
+                ).show()
                 updateMeasurements()
                 saveLog()
                 handler.post(logRunnable)
@@ -183,6 +222,8 @@ class MainActivity : AppCompatActivity() {
                     )
             }
         }
+
+
 
         requestPermissions()
         setupSignalListener()
@@ -628,9 +669,13 @@ class MainActivity : AppCompatActivity() {
                     "$currentSINR," +
                     "$currentNeighborCount"
 
-        val file = File(
-            "/storage/emulated/0/Download/network_logs.csv"
-        )
+        val downloadsFolder =
+            Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS
+            )
+
+        val file =
+            File(downloadsFolder, "network_logs.csv")
 
         if (!file.exists()) {
             file.appendText("time,lat,lon,network,signal,operator,pci,tac,nci,rsrp,rsrq,sinr,neighborCount\n")
@@ -638,8 +683,12 @@ class MainActivity : AppCompatActivity() {
 
         file.appendText("$logLine\n")
 
-        signalText.text = "Saved ✓  Signal: ${currentSignal} dBm"
+        signalText.text =
+            "Saved ✓ Download/network_logs.csv"
+
+//        signalText.text = "Saved ✓  Signal: ${currentSignal} dBm"
     }
+
 
     override fun onDestroy() {
         super.onDestroy()

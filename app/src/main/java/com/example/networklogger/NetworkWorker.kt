@@ -166,6 +166,11 @@ class NetworkWorker(
                 "background_logs.csv"
             )
 
+            Log.d(
+                "CSV",
+                "Background File Path: ${file.absolutePath}"
+            )
+
             if (!file.exists()) {
 
                 file.appendText(

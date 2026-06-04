@@ -56,6 +56,18 @@
             android:text="Logging Duration: 00:00:00"
             android:textSize="16sp"/>
 
+        <TextView
+            android:id="@+id/networkLogPathText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Network Log Path"/>
+
+        <TextView
+            android:id="@+id/backgroundLogPathText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Background Log Path"/>
+
 
         <com.github.mikephil.charting.charts.LineChart
             android:id="@+id/signalChart"
