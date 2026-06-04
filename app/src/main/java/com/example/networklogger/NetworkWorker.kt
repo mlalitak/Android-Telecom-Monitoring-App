@@ -15,8 +15,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.telephony.TelephonyManager
-import android.telephony.PhoneStateListener
-import android.telephony.SignalStrength
+//import android.telephony.PhoneStateListener
+//import android.telephony.SignalStrength
 
 class NetworkWorker(
     context: Context,

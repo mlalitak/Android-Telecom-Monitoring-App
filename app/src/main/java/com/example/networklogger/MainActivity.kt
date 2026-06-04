@@ -19,13 +19,16 @@ import java.util.*
 //import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 //import java.util.concurrent.TimeUnit
-import androidx.work.OneTimeWorkRequestBuilder
+//import androidx.work.OneTimeWorkRequestBuilder
 import android.content.Context
 import android.util.Log
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.ExistingPeriodicWorkPolicy
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,6 +40,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var signalText: TextView
 
     private lateinit var cellInfoText: TextView
+
+    private lateinit var rootStatusText: TextView
 
     private lateinit var telephonyManager: TelephonyManager
 
@@ -94,18 +99,21 @@ class MainActivity : AppCompatActivity() {
 //        WorkManager.getInstance(this)
 //            .enqueue(periodicWorkRequest)
 
-        val workRequest =
-            OneTimeWorkRequestBuilder<NetworkWorker>()
-                .build()
+//        val workRequest =
+//            OneTimeWorkRequestBuilder<NetworkWorker>()
+//                .build()
+//
+//        WorkManager.getInstance(this)
+//            .enqueue(workRequest)
 
-        WorkManager.getInstance(this)
-            .enqueue(workRequest)
+        startBackgroundMonitoring()
 
 
         locationText = findViewById(R.id.locationText)
         networkText = findViewById(R.id.networkText)
         signalText = findViewById(R.id.signalText)
         cellInfoText = findViewById(R.id.cellInfoText)
+        rootStatusText = findViewById(R.id.rootStatusText)
 
         val startButton = findViewById<Button>(R.id.startButton)
 
@@ -115,6 +123,17 @@ class MainActivity : AppCompatActivity() {
         telephonyManager =
             getSystemService(Context.TELEPHONY_SERVICE)
                     as TelephonyManager
+
+        val rootStatus =
+            if (isDeviceRooted())
+                "Rooted"
+            else
+                "Non-Rooted"
+
+        rootStatusText.text =
+            "Device Status: $rootStatus"
+
+        Log.d("RootCheck", "Device Status: $rootStatus")
 
         startButton.setOnClickListener {
             if (!isLogging) {
@@ -151,6 +170,24 @@ class MainActivity : AppCompatActivity() {
         )
 
         ActivityCompat.requestPermissions(this, permissions, 1)
+    }
+
+
+    private fun isDeviceRooted(): Boolean {
+
+        val paths = arrayOf(
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/sbin/su"
+        )
+
+        for (path in paths) {
+            if (File(path).exists()) {
+                return true
+            }
+        }
+
+        return false
     }
 
 
@@ -488,6 +525,24 @@ class MainActivity : AppCompatActivity() {
         signalChart.moveViewToX(chartX)
 
         signalChart.invalidate()
+    }
+
+
+    private fun startBackgroundMonitoring() {
+
+        val workRequest =
+            PeriodicWorkRequestBuilder<NetworkWorker>(
+                15,
+                TimeUnit.MINUTES
+            )
+                .build()
+
+        WorkManager.getInstance(this)
+            .enqueueUniquePeriodicWork(
+                "NetworkMonitoringWorker",
+                ExistingPeriodicWorkPolicy.UPDATE,
+                workRequest
+            )
     }
 
     private fun saveLog() {
