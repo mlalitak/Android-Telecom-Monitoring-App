@@ -43,6 +43,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var rootStatusText: TextView
 
+    private lateinit var loggingDurationText: TextView
+
     private lateinit var telephonyManager: TelephonyManager
 
     private lateinit var signalChart: LineChart
@@ -70,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     private var currentRSRQ = "N/A"
     private var currentSINR = "N/A"
     private var currentNeighborCount = "0"
+    private var loggingStartTime = 0L
 
     private var chartX = 0f
 
@@ -79,8 +82,10 @@ class MainActivity : AppCompatActivity() {
 
     private val logRunnable = object : Runnable {
         override fun run() {
+            if (!isLogging) return
             updateMeasurements()
             saveLog()
+            updateLoggingDuration()
             handler.postDelayed(this, 5000)
         }
     }
@@ -115,7 +120,12 @@ class MainActivity : AppCompatActivity() {
         cellInfoText = findViewById(R.id.cellInfoText)
         rootStatusText = findViewById(R.id.rootStatusText)
 
+        loggingDurationText =
+            findViewById(R.id.loggingDurationText)
+
         val startButton = findViewById<Button>(R.id.startButton)
+
+        val stopButton = findViewById<Button>(R.id.stopButton)
 
         fusedLocationClient =
             LocationServices.getFusedLocationProviderClient(this)
@@ -137,10 +147,40 @@ class MainActivity : AppCompatActivity() {
 
         startButton.setOnClickListener {
             if (!isLogging) {
+
+                loggingStartTime =
+                    System.currentTimeMillis()
+
                 isLogging = true
                 updateMeasurements()
                 saveLog()
                 handler.post(logRunnable)
+            }
+        }
+
+
+        stopButton.setOnClickListener {
+
+            if (isLogging) {
+
+                isLogging = false
+
+                handler.removeCallbacks(logRunnable)
+
+                val elapsedMillis =
+                    System.currentTimeMillis() - loggingStartTime
+
+                val seconds = (elapsedMillis / 1000) % 60
+                val minutes = (elapsedMillis / (1000 * 60)) % 60
+                val hours = elapsedMillis / (1000 * 60 * 60)
+
+                signalText.text =
+                    String.format(
+                        "Stopped after %02d:%02d:%02d",
+                        hours,
+                        minutes,
+                        seconds
+                    )
             }
         }
 
@@ -544,6 +584,28 @@ class MainActivity : AppCompatActivity() {
                 workRequest
             )
     }
+
+
+    private fun updateLoggingDuration() {
+
+        if (!isLogging) return
+
+        val elapsedMillis =
+            System.currentTimeMillis() - loggingStartTime
+
+        val seconds = (elapsedMillis / 1000) % 60
+        val minutes = (elapsedMillis / (1000 * 60)) % 60
+        val hours = elapsedMillis / (1000 * 60 * 60)
+
+        loggingDurationText.text =
+            String.format(
+                "Logging Duration: %02d:%02d:%02d",
+                hours,
+                minutes,
+                seconds
+            )
+    }
+
 
     private fun saveLog() {
         val time = SimpleDateFormat(
