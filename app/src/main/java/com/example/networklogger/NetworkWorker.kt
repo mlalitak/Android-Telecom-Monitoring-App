@@ -157,9 +157,7 @@ class NetworkWorker(
         try {
 
             val downloadsFolder =
-                Environment.getExternalStoragePublicDirectory(
-                    Environment.DIRECTORY_DOWNLOADS
-                )
+                applicationContext.getExternalFilesDir(null)
 
             val file = File(
                 downloadsFolder,

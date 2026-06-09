@@ -132,9 +132,7 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.backgroundLogPathText)
 
         val downloadsFolder =
-            Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS
-            )
+            getExternalFilesDir(null)
 
         val networkLogPath =
             File(downloadsFolder, "network_logs.csv").absolutePath
@@ -142,11 +140,15 @@ class MainActivity : AppCompatActivity() {
         val backgroundLogPath =
             File(downloadsFolder, "background_logs.csv").absolutePath
 
+        val appFilesDir = getExternalFilesDir(null)
+
         networkLogPathText.text =
-            "Network Log:\n$networkLogPath"
+            "network_logs.csv:\n" +
+                    File(appFilesDir, "network_logs.csv").absolutePath
 
         backgroundLogPathText.text =
-            "Background Log:\n$backgroundLogPath"
+            "background_logs.csv:\n" +
+                    File(appFilesDir, "background_logs.csv").absolutePath
 
         loggingDurationText =
             findViewById(R.id.loggingDurationText)
@@ -670,9 +672,7 @@ class MainActivity : AppCompatActivity() {
                     "$currentNeighborCount"
 
         val downloadsFolder =
-            Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS
-            )
+            getExternalFilesDir(null)
 
         val file =
             File(downloadsFolder, "network_logs.csv")
