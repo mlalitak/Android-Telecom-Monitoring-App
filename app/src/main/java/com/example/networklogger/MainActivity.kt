@@ -31,6 +31,11 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import java.util.concurrent.TimeUnit
 import android.widget.Toast
 import android.os.Environment
+import android.content.ContentValues
+import android.content.ContentUris
+import android.net.Uri
+import android.provider.MediaStore
+//import androidx.work.OutOfQuotaPolicy
 
 class MainActivity : AppCompatActivity() {
 
@@ -142,13 +147,6 @@ class MainActivity : AppCompatActivity() {
 
         val appFilesDir = getExternalFilesDir(null)
 
-        networkLogPathText.text =
-            "network_logs.csv:\n" +
-                    File(appFilesDir, "network_logs.csv").absolutePath
-
-        backgroundLogPathText.text =
-            "background_logs.csv:\n" +
-                    File(appFilesDir, "background_logs.csv").absolutePath
 
         loggingDurationText =
             findViewById(R.id.loggingDurationText)
@@ -175,6 +173,8 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("RootCheck", "Device Status: $rootStatus")
 
+        val dir = getExternalFilesDir(null)
+
         networkLogPathText.text =
             "network_logs.csv:\n/storage/emulated/0/Download/network_logs.csv"
 
@@ -190,11 +190,11 @@ class MainActivity : AppCompatActivity() {
                 isLogging = true
                 Toast.makeText(
                     this,
-                    "Logs are being saved in Download folder",
-                    Toast.LENGTH_LONG
+                    "Logs are started",
+                    Toast.LENGTH_SHORT
                 ).show()
-                updateMeasurements()
-                saveLog()
+//                updateMeasurements()
+//                saveLog()
                 handler.post(logRunnable)
             }
         }
@@ -229,6 +229,8 @@ class MainActivity : AppCompatActivity() {
 
         requestPermissions()
         setupSignalListener()
+        requestBatteryOptimizationExemption()
+        showRealmeBatteryDialog()
         signalChart = findViewById(R.id.signalChart)
 
         signalChart.description.isEnabled = false
@@ -244,6 +246,49 @@ class MainActivity : AppCompatActivity() {
         signalChart.axisLeft.axisMinimum = 0f
 
         signalChart.axisLeft.axisMaximum = 4f
+    }
+
+
+
+    private fun requestBatteryOptimizationExemption() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            val packageName = packageName
+
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = android.content.Intent(
+                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                ).apply {
+                    data = android.net.Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
+        }
+    }
+
+
+    private fun showRealmeBatteryDialog() {
+        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val shown = prefs.getBoolean("autostart_dialog_shown", false)
+
+        if (!shown) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Enable Background Logging")
+                .setMessage(
+                    "For background_logs.csv to save properly:\n\n" +
+                            "1. Go to Phone Settings\n" +
+                            "2. Search 'Autostart'\n" +
+                            "3. Enable Autostart for NetworkLogger\n\n" +
+                            "Also go to Battery → App Battery Saver → Set NetworkLogger to 'No Restrictions'"
+                )
+                .setPositiveButton("Open Settings") { _, _ ->
+                    startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
+                }
+                .setNegativeButton("Later", null)
+                .show()
+
+            prefs.edit().putBoolean("autostart_dialog_shown", true).apply()
+        }
     }
 
     private fun requestPermissions() {
@@ -612,13 +657,8 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun startBackgroundMonitoring() {
-
-        val workRequest =
-            PeriodicWorkRequestBuilder<NetworkWorker>(
-                15,
-                TimeUnit.MINUTES
-            )
-                .build()
+        val workRequest = PeriodicWorkRequestBuilder<NetworkWorker>(15, TimeUnit.MINUTES)
+            .build()
 
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
@@ -651,42 +691,68 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun saveLog() {
-        val time = SimpleDateFormat(
-            "HH:mm:ss",
-            Locale.getDefault()
-        ).format(Date())
+        val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
-        val logLine =
-            "$time," +
-                    "$currentLat," +
-                    "$currentLon," +
-                    "$currentNetwork," +
-                    "$currentSignal," +
-                    "$currentOperator," +
-                    "$currentPCI," +
-                    "$currentTAC," +
-                    "$currentNCI," +
-                    "$currentRSRP," +
-                    "$currentRSRQ," +
-                    "$currentSINR," +
-                    "$currentNeighborCount"
+        val logLine = "$time,$currentLat,$currentLon,$currentNetwork,$currentSignal," +
+                "$currentOperator,$currentPCI,$currentTAC,$currentNCI," +
+                "$currentRSRP,$currentRSRQ,$currentSINR,$currentNeighborCount\n"
 
-        val downloadsFolder =
-            getExternalFilesDir(null)
+        val header = "time,lat,lon,network,signal,operator,pci,tac,nci,rsrp,rsrq,sinr,neighborCount\n"
 
-        val file =
-            File(downloadsFolder, "network_logs.csv")
+        try {
+            val fileName = "network_logs.csv"
+            val resolver = contentResolver
 
-        if (!file.exists()) {
-            file.appendText("time,lat,lon,network,signal,operator,pci,tac,nci,rsrp,rsrq,sinr,neighborCount\n")
+            // Check if file already exists in Downloads
+            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+
+            val existingUri: Uri? = resolver.query(
+                collection,
+                arrayOf(MediaStore.Downloads._ID),
+                "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                arrayOf(fileName),
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                    ContentUris.withAppendedId(collection, id)
+                } else null
+            }
+
+            if (existingUri != null) {
+                // File exists — append to it
+                resolver.openOutputStream(existingUri, "wa")?.use { outputStream ->
+                    outputStream.write(logLine.toByteArray())
+                }
+                Log.d("CSV", "Appended to existing file: $existingUri")
+            } else {
+                // File doesn't exist — create it with header + first row
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+
+                val uri = resolver.insert(collection, contentValues)!!
+
+                resolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(header.toByteArray())
+                    outputStream.write(logLine.toByteArray())
+                }
+
+                contentValues.clear()
+                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+
+                Log.d("CSV", "Created new file: $uri")
+            }
+
+            Log.d("CSV", "Row saved: $logLine")
+
+        } catch (e: Exception) {
+            Log.e("CSV", "saveLog() failed: ${e.message}", e)
         }
-
-        file.appendText("$logLine\n")
-
-        signalText.text =
-            "Saved ✓ Download/network_logs.csv"
-
-//        signalText.text = "Saved ✓  Signal: ${currentSignal} dBm"
     }
 
 

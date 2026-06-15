@@ -17,11 +17,20 @@ import android.os.BatteryManager
 import android.telephony.TelephonyManager
 //import android.telephony.PhoneStateListener
 //import android.telephony.SignalStrength
+import android.content.ContentValues
+import android.content.ContentUris
+import android.net.Uri
+import android.provider.MediaStore
+import androidx.core.content.ContextCompat
+import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
+import androidx.core.app.NotificationCompat
+
 
 class NetworkWorker(
     context: Context,
     workerParams: WorkerParameters
-) : Worker(context, workerParams) {
+) : CoroutineWorker(context, workerParams) {
 
     private var batteryPercent = 0
 
@@ -37,21 +46,51 @@ class NetworkWorker(
     private var operatorName = "Unknown"
     private var signalLevel = "Unknown"
 
-    override fun doWork(): Result {
-
+    override suspend fun doWork(): Result {
         Log.d("NetworkWorker", "Background work running")
 
-        logBatteryInfo()
+        // This keeps the Worker alive on real devices
+        setForeground(createForegroundInfo())
 
-        logStorageInfo()
+        return try {
+            logBatteryInfo()
+            logStorageInfo()
+            logRamInfo()
+            logTelecomInfo()
+            saveBackgroundLog()
+            Log.d("NetworkWorker", "Completed successfully")
+            Result.success()
+        } catch (e: Exception) {
+            Log.e("NetworkWorker", "doWork() failed: ${e.message}", e)
+            Result.failure()
+        }
+    }
 
-        logRamInfo()
 
-        logTelecomInfo()
+    private fun createForegroundInfo(): ForegroundInfo {
+        val channelId = "network_logger_channel"
+        val channelName = "Network Logger"
 
-        saveBackgroundLog()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(
+                channelId,
+                channelName,
+                android.app.NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = applicationContext.getSystemService(
+                android.app.NotificationManager::class.java
+            )
+            manager.createNotificationChannel(channel)
+        }
 
-        return Result.success()
+        val notification = androidx.core.app.NotificationCompat.Builder(applicationContext, channelId)
+            .setContentTitle("NetworkLogger")
+            .setContentText("Logging network data in background...")
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setOngoing(true)
+            .build()
+
+        return ForegroundInfo(1001, notification)
     }
 
     private fun logStorageInfo() {
@@ -124,84 +163,91 @@ class NetworkWorker(
 
 
     private fun logTelecomInfo() {
-
         val telephonyManager =
-            applicationContext.getSystemService(Context.TELEPHONY_SERVICE)
-                    as TelephonyManager
+            applicationContext.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
 
-        operatorName = telephonyManager.networkOperatorName
+        operatorName = telephonyManager.networkOperatorName  // safe, no permission needed
 
-        networkType = when (telephonyManager.dataNetworkType) {
-
-            TelephonyManager.NETWORK_TYPE_GPRS -> "2G"
-            TelephonyManager.NETWORK_TYPE_EDGE -> "2G"
-            TelephonyManager.NETWORK_TYPE_UMTS -> "3G"
-            TelephonyManager.NETWORK_TYPE_HSDPA -> "3G"
-            TelephonyManager.NETWORK_TYPE_LTE -> "4G"
-            TelephonyManager.NETWORK_TYPE_NR -> "5G"
-
-            else -> "Unknown"
+        networkType = if (ContextCompat.checkSelfPermission(
+                applicationContext,
+                android.Manifest.permission.READ_PHONE_STATE
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            when (telephonyManager.dataNetworkType) {
+                TelephonyManager.NETWORK_TYPE_GPRS,
+                TelephonyManager.NETWORK_TYPE_EDGE -> "2G"
+                TelephonyManager.NETWORK_TYPE_UMTS,
+                TelephonyManager.NETWORK_TYPE_HSDPA -> "3G"
+                TelephonyManager.NETWORK_TYPE_LTE -> "4G"
+                TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                else -> "Unknown"
+            }
+        } else {
+            Log.w("NetworkWorker", "READ_PHONE_STATE not granted")
+            "No Permission"
         }
 
         signalLevel = "N/A"
-
         Log.d("TelecomInfo", "Operator: $operatorName")
         Log.d("TelecomInfo", "Network Type: $networkType")
-        Log.d("TelecomInfo", "Signal Level: $signalLevel")
     }
 
 
 
     private fun saveBackgroundLog() {
-
         try {
+            val fileName = "background_logs.csv"
+            val header = "Time,Battery,NetworkType,Operator,SignalLevel,TotalStorage,UsedStorage,FreeStorage,TotalRAM,UsedRAM,AvailableRAM\n"
 
-            val downloadsFolder =
-                applicationContext.getExternalFilesDir(null)
+            val timeStamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
 
-            val file = File(
-                downloadsFolder,
-                "background_logs.csv"
-            )
+            val logData = "$timeStamp,$batteryPercent,$networkType,$operatorName,$signalLevel," +
+                    "$totalStorageGB,$usedStorageGB,$freeStorageGB,$totalRamGB,$usedRamGB,$availableRamGB\n"
 
-            Log.d(
-                "CSV",
-                "Background File Path: ${file.absolutePath}"
-            )
+            val resolver = applicationContext.contentResolver
+            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
-            if (!file.exists()) {
-
-                file.appendText(
-                    "Time,Battery,NetworkType,Operator,SignalLevel,TotalStorage,UsedStorage,FreeStorage,TotalRAM,UsedRAM,AvailableRAM\n"
-                )
+            // Check if file already exists in Downloads
+            val existingUri: Uri? = resolver.query(
+                collection,
+                arrayOf(MediaStore.Downloads._ID),
+                "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                arrayOf(fileName),
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                    ContentUris.withAppendedId(collection, id)
+                } else null
             }
 
-            val timeStamp = SimpleDateFormat(
-                "yyyy-MM-dd HH:mm:ss",
-                Locale.getDefault()
-            ).format(Date())
-
-            val logData =
-                "$timeStamp," +
-                        "$batteryPercent," +
-                        "$networkType," +
-                        "$operatorName," +
-                        "$signalLevel," +
-                        "$totalStorageGB," +
-                        "$usedStorageGB," +
-                        "$freeStorageGB," +
-                        "$totalRamGB," +
-                        "$usedRamGB," +
-                        "$availableRamGB\n"
-
-            file.appendText(logData)
-
-            Log.d("CSV", "Background log saved")
-            Log.d("CSV", "File Path: ${file.absolutePath}")
+            if (existingUri != null) {
+                // File exists — append new row
+                resolver.openOutputStream(existingUri, "wa")?.use { outputStream ->
+                    outputStream.write(logData.toByteArray())
+                }
+                Log.d("CSV", "Background log appended to existing file")
+            } else {
+                // File doesn't exist — create with header + first row
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val uri = resolver.insert(collection, values)!!
+                resolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(header.toByteArray())
+                    outputStream.write(logData.toByteArray())
+                }
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                Log.d("CSV", "Background log created: $uri")
+            }
 
         } catch (e: Exception) {
-
-            Log.e("CSV", "Error saving CSV", e)
+            Log.e("CSV", "Error saving background CSV: ${e.message}", e)
         }
     }
 }
