@@ -121,7 +121,7 @@ class MainActivity : AppCompatActivity() {
 //        WorkManager.getInstance(this)
 //            .enqueue(workRequest)
 
-        startBackgroundMonitoring()
+
 
 
         locationText = findViewById(R.id.locationText)
@@ -231,6 +231,8 @@ class MainActivity : AppCompatActivity() {
         setupSignalListener()
         requestBatteryOptimizationExemption()
         showRealmeBatteryDialog()
+        startBackgroundMonitoring()
+
         signalChart = findViewById(R.id.signalChart)
 
         signalChart.description.isEnabled = false

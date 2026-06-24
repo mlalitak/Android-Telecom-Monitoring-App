@@ -50,7 +50,13 @@ class NetworkWorker(
         Log.d("NetworkWorker", "Background work running")
 
         // This keeps the Worker alive on real devices
-        setForeground(createForegroundInfo())
+        // Wrap setForeground in try-catch — don't let it kill the whole worker
+        try {
+            setForeground(createForegroundInfo())
+        } catch (e: Exception) {
+            Log.w("NetworkWorker", "setForeground failed (non-fatal): ${e.message}")
+            // Continue anyway — worker still runs without foreground
+        }
 
         return try {
             logBatteryInfo()
