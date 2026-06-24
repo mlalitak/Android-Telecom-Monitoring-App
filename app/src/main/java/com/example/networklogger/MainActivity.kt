@@ -672,14 +672,20 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun startBackgroundMonitoring() {
-        val workRequest = PeriodicWorkRequestBuilder<NetworkWorker>(15, TimeUnit.MINUTES)
+        // Run ONCE immediately on launch — creates background_logs.csv right away
+        val immediateRequest = androidx.work.OneTimeWorkRequestBuilder<NetworkWorker>()
+            .build()
+        WorkManager.getInstance(this).enqueue(immediateRequest)
+
+        // Then continue running every 15 minutes in background
+        val periodicRequest = PeriodicWorkRequestBuilder<NetworkWorker>(15, TimeUnit.MINUTES)
             .build()
 
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 "NetworkMonitoringWorker",
                 ExistingPeriodicWorkPolicy.UPDATE,
-                workRequest
+                periodicRequest
             )
     }
 
