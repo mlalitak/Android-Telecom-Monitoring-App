@@ -254,16 +254,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestBatteryOptimizationExemption() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-            val packageName = packageName
-
-            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                val intent = android.content.Intent(
-                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                ).apply {
-                    data = android.net.Uri.parse("package:$packageName")
+            try {
+                val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                    val intent = android.content.Intent(
+                        android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                    ).apply {
+                        data = android.net.Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
                 }
-                startActivity(intent)
+            } catch (e: Exception) {
+                // Rooted ROMs with custom power managers may not support this intent
+                Log.w("BatteryOpt", "Battery optimization exemption not available: ${e.message}")
             }
         }
     }
@@ -274,20 +277,30 @@ class MainActivity : AppCompatActivity() {
         val shown = prefs.getBoolean("autostart_dialog_shown", false)
 
         if (!shown) {
-            android.app.AlertDialog.Builder(this)
-                .setTitle("Enable Background Logging")
-                .setMessage(
-                    "For background_logs.csv to save properly:\n\n" +
-                            "1. Go to Phone Settings\n" +
-                            "2. Search 'Autostart'\n" +
-                            "3. Enable Autostart for NetworkLogger\n\n" +
-                            "Also go to Battery → App Battery Saver → Set NetworkLogger to 'No Restrictions'"
-                )
-                .setPositiveButton("Open Settings") { _, _ ->
-                    startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
-                }
-                .setNegativeButton("Later", null)
-                .show()
+            try {
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Enable Background Logging")
+                    .setMessage(
+                        "For background_logs.csv to save properly:\n\n" +
+                                "1. Go to Phone Settings\n" +
+                                "2. Search 'Autostart'\n" +
+                                "3. Enable Autostart for NetworkLogger\n\n" +
+                                "Also go to Battery → App Battery Saver → Set NetworkLogger to 'No Restrictions'"
+                    )
+                    .setPositiveButton("Open Settings") { _, _ ->
+                        try {
+                            startActivity(
+                                android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                            )
+                        } catch (e: Exception) {
+                            Log.w("Dialog", "Could not open settings: ${e.message}")
+                        }
+                    }
+                    .setNegativeButton("Later", null)
+                    .show()
+            } catch (e: Exception) {
+                Log.w("Dialog", "Could not show dialog: ${e.message}")
+            }
 
             prefs.edit().putBoolean("autostart_dialog_shown", true).apply()
         }

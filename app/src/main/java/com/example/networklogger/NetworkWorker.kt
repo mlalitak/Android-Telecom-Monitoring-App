@@ -51,11 +51,16 @@ class NetworkWorker(
 
         // This keeps the Worker alive on real devices
         // Wrap setForeground in try-catch — don't let it kill the whole worker
-        try {
-            setForeground(createForegroundInfo())
-        } catch (e: Exception) {
-            Log.w("NetworkWorker", "setForeground failed (non-fatal): ${e.message}")
-            // Continue anyway — worker still runs without foreground
+        // On rooted phones, foreground service can be blocked by SELinux/Magisk
+        // We try it but never let it crash the app
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            try {
+                setForeground(createForegroundInfo())
+                Log.d("NetworkWorker", "Foreground service started")
+            } catch (e: Exception) {
+                // Rooted phones may block this — safe to continue without it
+                Log.w("NetworkWorker", "Foreground service blocked (rooted device?): ${e.message}")
+            }
         }
 
         return try {
