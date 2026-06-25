@@ -517,7 +517,8 @@ class MainActivity : AppCompatActivity() {
                     val earfcn = identity.earfcn
 
                     val rsrp = signal.rsrp
-                    val rsrq = signal.rsrq
+                    val rsrq = if (signal.rsrq == Int.MAX_VALUE) "N/A" else "${signal.rsrq} dB"
+
 
                     currentDbm = rsrp
 
@@ -538,7 +539,7 @@ class MainActivity : AppCompatActivity() {
                                 "TAC: $tac\n" +
                                 "EARFCN: $earfcn\n" +
                                 "RSRP: $rsrp dBm\n" +
-                                "RSRQ: $rsrq dB"
+                                "RSRQ: $rsrq"
                 }
 
                 is CellInfoNr -> {
@@ -550,13 +551,20 @@ class MainActivity : AppCompatActivity() {
                     val mcc = identity.mccString
                     val mnc = identity.mncString
                     val nrarfcn = identity.nrarfcn
-                    val rsrq =
-                        if (signal.csiRsrq == Int.MAX_VALUE) "N/A"
-                        else signal.csiRsrq.toString()
 
-                    val snr =
-                        if (signal.csiSinr == Int.MAX_VALUE) "N/A"
-                        else signal.csiSinr.toString()
+                    // NEW — tries SS fields first, falls back to CSI, then N/A
+                    val rsrq = when {
+                        signal.ssRsrq != Int.MAX_VALUE -> "${signal.ssRsrq} dB"
+                        signal.csiRsrq != Int.MAX_VALUE -> "${signal.csiRsrq} dB"
+                        else -> "N/A"
+                    }
+
+                    val snr = when {
+                        signal.ssSinr != Int.MAX_VALUE -> "${signal.ssSinr} dB"
+                        signal.csiSinr != Int.MAX_VALUE -> "${signal.csiSinr} dB"
+                        else -> "N/A"
+                    }
+
 //                    val bandwidth = identity.bandwidth
 //                    val accuracy = location.accuracy
                     val neighborCount = telephonyManager.allCellInfo.size
@@ -565,8 +573,10 @@ class MainActivity : AppCompatActivity() {
                     currentTAC = identity.tac.toString()
                     currentNCI = identity.nci.toString()
                     currentRSRP = signal.dbm.toString()
-                    currentRSRQ = rsrq
-                    currentSINR = snr
+
+                    currentRSRQ = rsrq.replace(" dB", "")
+                    currentSINR = snr.replace(" dB", "")
+
                     currentNeighborCount = neighborCount.toString()
 
 
