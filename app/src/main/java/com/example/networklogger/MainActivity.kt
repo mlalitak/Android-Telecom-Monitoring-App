@@ -136,16 +136,16 @@ class MainActivity : AppCompatActivity() {
         backgroundLogPathText =
             findViewById(R.id.backgroundLogPathText)
 
-        val downloadsFolder =
-            getExternalFilesDir(null)
+//        val downloadsFolder =
+//            getExternalFilesDir(null)
 
-        val networkLogPath =
-            File(downloadsFolder, "network_logs.csv").absolutePath
-
-        val backgroundLogPath =
-            File(downloadsFolder, "background_logs.csv").absolutePath
-
-        val appFilesDir = getExternalFilesDir(null)
+//        val networkLogPath =
+//            File(downloadsFolder, "network_logs.csv").absolutePath
+//
+//        val backgroundLogPath =
+//            File(downloadsFolder, "background_logs.csv").absolutePath
+//
+//        val appFilesDir = getExternalFilesDir(null)
 
 
         loggingDurationText =
@@ -173,7 +173,7 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("RootCheck", "Device Status: $rootStatus")
 
-        val dir = getExternalFilesDir(null)
+//        val dir = getExternalFilesDir(null)
 
         networkLogPathText.text =
             "network_logs.csv:\n/storage/emulated/0/Download/network_logs.csv"
@@ -402,25 +402,35 @@ class MainActivity : AppCompatActivity() {
 
     private fun getLocation() {
         if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                this, Manifest.permission.ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED
         ) {
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location ->
-                    if (location != null) {
-                        currentLat = location.latitude.toString()
-                        currentLon = location.longitude.toString()
-                        currentAltitude = location.altitude.toString()
-                        currentSpeed = location.speed.toString()
-                        currentAccuracy = location.accuracy.toString()
+            // Request fresh location update instead of cached lastLocation
+            val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 5000L
+            ).build()
 
-                        locationText.text =
-                            "Location: $currentLat , $currentLon"
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                object : com.google.android.gms.location.LocationCallback() {
+                    override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                        result.lastLocation?.let { location ->
+                            currentLat = location.latitude.toString()
+                            currentLon = location.longitude.toString()
+                            currentAltitude = location.altitude.toString()
+                            currentSpeed = location.speed.toString()
+                            currentAccuracy = location.accuracy.toString()
+                            locationText.text = "Location: $currentLat , $currentLon"
+                            // Remove callback after getting one fresh reading
+                            fusedLocationClient.removeLocationUpdates(this)
+                        }
                     }
-                }
+                },
+                Looper.getMainLooper()
+            )
         }
     }
+
 
     private fun getReadableNetworkType(type: Int): String {
         return when (type) {
@@ -462,28 +472,24 @@ class MainActivity : AppCompatActivity() {
     private fun setupSignalListener() {
         telephonyManager.listen(
             object : PhoneStateListener() {
-                override fun onSignalStrengthsChanged(
-                    signalStrength: SignalStrength
-                ) {
+                override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
                     super.onSignalStrengthsChanged(signalStrength)
 
-                    val level = signalStrength.level
+                    // Only update chart here — let getCellTowerInfo() handle currentSignal
                     updateSignalChart(currentDbm)
-//                    updateSignalChart(level)
 
-
-                    currentSignal = when (level) {
-                        0 -> "Very Weak"
-                        1 -> "Weak"
-                        2 -> "Medium"
-                        3 -> "Strong"
-                        4 -> "Very Strong"
-                        else -> "Unknown"
+                    // Keep signalText update only if not logging
+                    if (!isLogging) {
+                        val level = signalStrength.level
+                        signalText.text = "Signal: " + when (level) {
+                            0 -> "Very Weak"
+                            1 -> "Weak"
+                            2 -> "Medium"
+                            3 -> "Strong"
+                            4 -> "Very Strong"
+                            else -> "Unknown"
+                        }
                     }
-
-                    signalText.text = "Signal: $currentSignal"
-
-//                    signalText.text = "Signal: $currentSignal"
                 }
             },
             PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
@@ -523,11 +529,13 @@ class MainActivity : AppCompatActivity() {
                     currentDbm = rsrp
 
 
+                    currentSignal = getRsrpSignalLabel(signal.rsrp)
+
                     currentPCI = identity.pci.toString()
                     currentTAC = tac.toString()
                     currentNCI = ci.toString()
                     currentRSRP = rsrp.toString()
-                    currentRSRQ = rsrq.toString()
+                    currentRSRQ = rsrq.replace(" dB", "")
                     currentSINR = "N/A"
                     currentNeighborCount =
                         telephonyManager.allCellInfo.size.toString()
@@ -568,6 +576,10 @@ class MainActivity : AppCompatActivity() {
 //                    val bandwidth = identity.bandwidth
 //                    val accuracy = location.accuracy
                     val neighborCount = telephonyManager.allCellInfo.size
+
+
+
+                    currentSignal = getRsrpSignalLabel(signal.dbm)
 
                     currentPCI = identity.pci.toString()
                     currentTAC = identity.tac.toString()
@@ -622,8 +634,8 @@ class MainActivity : AppCompatActivity() {
                                 "MNC: $mnc\n" +
                                 "Operator: $currentOperator\n" +
                                 "NRARFCN: $nrarfcn\n" +
-                                "RSRQ: $rsrq dB\n" +
-                                "SINR: $snr dB\n" +
+                                "RSRQ: $rsrq\n" +
+                                "SINR: $snr\n" +
 //                                "Bandwidth: $bandwidth kHz\n" +
                                 "Time: $currentTime\n" +
                                 "Altitude: $currentAltitude m\n" +
@@ -640,6 +652,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+
+
+
+    // Add this helper function to MainActivity.kt
+    private fun getRsrpSignalLabel(rsrp: Int): String {
+        return when {
+            rsrp >= -80  -> "Very Strong"
+            rsrp >= -90  -> "Strong"
+            rsrp >= -100 -> "Medium"
+            rsrp >= -110 -> "Weak"
+            else         -> "Very Weak"
+        }
+    }
+
+
 
 
     private fun updateSignalChart(dbm: Int) {

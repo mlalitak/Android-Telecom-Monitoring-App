@@ -5,9 +5,7 @@ import android.content.Context
 import android.os.Environment
 import android.os.StatFs
 import android.util.Log
-import androidx.work.Worker
 import androidx.work.WorkerParameters
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -34,13 +32,14 @@ class NetworkWorker(
 
     private var batteryPercent = 0
 
-    private var totalStorageGB = 0L
-    private var usedStorageGB = 0L
-    private var freeStorageGB = 0L
+    // NEW
+    private var totalRamGB = 0f
+    private var usedRamGB = 0f
+    private var availableRamGB = 0f
 
-    private var totalRamGB = 0L
-    private var usedRamGB = 0L
-    private var availableRamGB = 0L
+    private var totalStorageGB = 0f
+    private var usedStorageGB = 0f
+    private var freeStorageGB = 0f
 
     private var networkType = "Unknown"
     private var operatorName = "Unknown"
@@ -117,13 +116,14 @@ class NetworkWorker(
         val freeStorage = availableBlocks * blockSize
         val usedStorage = totalStorage - freeStorage
 
-        totalStorageGB = totalStorage / (1024 * 1024 * 1024)
-        freeStorageGB = freeStorage / (1024 * 1024 * 1024)
-        usedStorageGB = usedStorage / (1024 * 1024 * 1024)
+        totalStorageGB = totalStorage / (1024f * 1024f * 1024f)
+        freeStorageGB = freeStorage / (1024f * 1024f * 1024f)
+        usedStorageGB = usedStorage / (1024f * 1024f * 1024f)
 
-        Log.d("StorageInfo", "Total Storage: ${totalStorageGB} GB")
-        Log.d("StorageInfo", "Used Storage: ${usedStorageGB} GB")
-        Log.d("StorageInfo", "Free Storage: ${freeStorageGB} GB")
+        Log.d("StorageInfo", "Total Storage: %.2f GB".format(totalStorageGB))
+        Log.d("StorageInfo", "Used Storage: %.2f GB".format(usedStorageGB))
+        Log.d("StorageInfo", "Free Storage: %.2f GB".format(freeStorageGB))
+
     }
 
     private fun logRamInfo() {
@@ -140,13 +140,13 @@ class NetworkWorker(
         val availableRam = memoryInfo.availMem
         val usedRam = totalRam - availableRam
 
-        totalRamGB = totalRam / (1024 * 1024 * 1024)
-        availableRamGB = availableRam / (1024 * 1024 * 1024)
-        usedRamGB = usedRam / (1024 * 1024 * 1024)
+        totalRamGB = totalRam / (1024f * 1024f * 1024f)
+        availableRamGB = availableRam / (1024f * 1024f * 1024f)
+        usedRamGB = usedRam / (1024f * 1024f * 1024f)
 
-        Log.d("RAMInfo", "Total RAM: ${totalRamGB} GB")
-        Log.d("RAMInfo", "Used RAM: ${usedRamGB} GB")
-        Log.d("RAMInfo", "Available RAM: ${availableRamGB} GB")
+        Log.d("RAMInfo", "Total RAM: %.2f GB".format(totalRamGB))
+        Log.d("RAMInfo", "Used RAM: %.2f GB".format(usedRamGB))
+        Log.d("RAMInfo", "Available RAM: %.2f GB".format(availableRamGB))
     }
 
 
@@ -198,9 +198,31 @@ class NetworkWorker(
             "No Permission"
         }
 
-        signalLevel = "N/A"
         Log.d("TelecomInfo", "Operator: $operatorName")
         Log.d("TelecomInfo", "Network Type: $networkType")
+
+
+        // At the end of logTelecomInfo(), after setting networkType:
+        signalLevel = if (ContextCompat.checkSelfPermission(
+                applicationContext, android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                val cellInfos = telephonyManager.allCellInfo
+                if (!cellInfos.isNullOrEmpty()) {
+                    when (val cell = cellInfos[0]) {
+                        is android.telephony.CellInfoNr -> {
+                            val sig = cell.cellSignalStrength as android.telephony.CellSignalStrengthNr
+                            "${sig.dbm} dBm"
+                        }
+                        is android.telephony.CellInfoLte -> {
+                            "${cell.cellSignalStrength.rsrp} dBm"
+                        }
+                        else -> "N/A"
+                    }
+                } else "N/A"
+            } catch (e: Exception) { "N/A" }
+        } else "N/A"
     }
 
 
