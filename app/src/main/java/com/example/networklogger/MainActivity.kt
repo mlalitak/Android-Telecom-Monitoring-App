@@ -317,18 +317,31 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun isDeviceRooted(): Boolean {
-
         val paths = arrayOf(
             "/system/bin/su",
             "/system/xbin/su",
-            "/sbin/su"
+            "/sbin/su",
+            "/system/su"
         )
-
         for (path in paths) {
-            if (File(path).exists()) {
-                return true
+            try {
+                if (File(path).exists()) return true
+            } catch (e: Exception) {
+                Log.w("RootCheck", "Cannot check path $path: ${e.message}")
             }
         }
+
+        // Check Magisk
+        try {
+            packageManager.getPackageInfo("com.topjohnwu.magisk", 0)
+            return true
+        } catch (e: Exception) { }
+
+        // Check build tags
+        try {
+            val buildTags = android.os.Build.TAGS
+            if (buildTags != null && buildTags.contains("test-keys")) return true
+        } catch (e: Exception) { }
 
         return false
     }
@@ -452,48 +465,81 @@ class MainActivity : AppCompatActivity() {
     private fun updateMeasurements() {
         getLocation()
 
-        currentNetwork =
+        // Wrap networkType read — can throw SecurityException on rooted OnePlus
+        currentNetwork = try {
             getReadableNetworkType(telephonyManager.networkType)
+        } catch (e: Exception) {
+            Log.w("Network", "Cannot read networkType: ${e.message}")
+            "Unknown"
+        }
 
         networkText.text = "Network: $currentNetwork"
 
-        currentOperator = telephonyManager.networkOperatorName
+        currentOperator = try {
+            telephonyManager.networkOperatorName
+        } catch (e: Exception) { "Unknown" }
 
-        currentTime = SimpleDateFormat(
-            "HH:mm:ss",
-            Locale.getDefault()
-        ).format(Date())
+        currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
 
         getCellTowerInfo()
-
         getNeighborCellInfo()
     }
 
     private fun setupSignalListener() {
-        telephonyManager.listen(
-            object : PhoneStateListener() {
-                override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
-                    super.onSignalStrengthsChanged(signalStrength)
-
-                    // Only update chart here — let getCellTowerInfo() handle currentSignal
-                    updateSignalChart(currentDbm)
-
-                    // Keep signalText update only if not logging
-                    if (!isLogging) {
-                        val level = signalStrength.level
-                        signalText.text = "Signal: " + when (level) {
-                            0 -> "Very Weak"
-                            1 -> "Weak"
-                            2 -> "Medium"
-                            3 -> "Strong"
-                            4 -> "Very Strong"
-                            else -> "Unknown"
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                // Android 12+ — use new TelephonyCallback API
+                val executor = mainExecutor
+                telephonyManager.registerTelephonyCallback(
+                    executor,
+                    object : android.telephony.TelephonyCallback(),
+                        android.telephony.TelephonyCallback.SignalStrengthsListener {
+                        override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
+                            updateSignalChart(currentDbm)
+                            if (!isLogging) {
+                                val level = signalStrength.level
+                                signalText.text = "Signal: " + when (level) {
+                                    0 -> "Very Weak"
+                                    1 -> "Weak"
+                                    2 -> "Medium"
+                                    3 -> "Strong"
+                                    4 -> "Very Strong"
+                                    else -> "Unknown"
+                                }
+                            }
                         }
                     }
-                }
-            },
-            PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
-        )
+                )
+            } else {
+                // Android 11 and below — use old PhoneStateListener
+                @Suppress("DEPRECATION")
+                telephonyManager.listen(
+                    object : PhoneStateListener() {
+                        @Suppress("DEPRECATION")
+                        override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
+                            super.onSignalStrengthsChanged(signalStrength)
+                            updateSignalChart(currentDbm)
+                            if (!isLogging) {
+                                val level = signalStrength.level
+                                signalText.text = "Signal: " + when (level) {
+                                    0 -> "Very Weak"
+                                    1 -> "Weak"
+                                    2 -> "Medium"
+                                    3 -> "Strong"
+                                    4 -> "Very Strong"
+                                    else -> "Unknown"
+                                }
+                            }
+                        }
+                    },
+                    @Suppress("DEPRECATION")
+                    PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
+                )
+            }
+        } catch (e: Exception) {
+            Log.w("SignalListener", "Signal listener setup failed: ${e.message}")
+            // App continues without signal listener — not fatal
+        }
     }
 
 
@@ -503,12 +549,18 @@ class MainActivity : AppCompatActivity() {
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+            cellInfoText.text = "Cell Info: Location permission required."
             return
         }
 
-        val cellInfos = telephonyManager.allCellInfo
+        try {
+            val cellInfos = telephonyManager.allCellInfo
 
-        if (!cellInfos.isNullOrEmpty()) {
+            if (cellInfos.isNullOrEmpty()) {
+                cellInfoText.text = "Cell Info: Not Available"
+                return
+            }
+
             val cellInfo = cellInfos[0]
 
             when (cellInfo) {
@@ -525,10 +577,7 @@ class MainActivity : AppCompatActivity() {
                     val rsrp = signal.rsrp
                     val rsrq = if (signal.rsrq == Int.MAX_VALUE) "N/A" else "${signal.rsrq} dB"
 
-
                     currentDbm = rsrp
-
-
                     currentSignal = getRsrpSignalLabel(signal.rsrp)
 
                     currentPCI = identity.pci.toString()
@@ -537,8 +586,7 @@ class MainActivity : AppCompatActivity() {
                     currentRSRP = rsrp.toString()
                     currentRSRQ = rsrq.replace(" dB", "")
                     currentSINR = "N/A"
-                    currentNeighborCount =
-                        telephonyManager.allCellInfo.size.toString()
+                    currentNeighborCount = telephonyManager.allCellInfo.size.toString()
 
                     cellInfoText.text =
                         "MCC: $mcc\n" +
@@ -560,7 +608,6 @@ class MainActivity : AppCompatActivity() {
                     val mnc = identity.mncString
                     val nrarfcn = identity.nrarfcn
 
-                    // NEW — tries SS fields first, falls back to CSI, then N/A
                     val rsrq = when {
                         signal.ssRsrq != Int.MAX_VALUE -> "${signal.ssRsrq} dB"
                         signal.csiRsrq != Int.MAX_VALUE -> "${signal.csiRsrq} dB"
@@ -573,31 +620,21 @@ class MainActivity : AppCompatActivity() {
                         else -> "N/A"
                     }
 
-//                    val bandwidth = identity.bandwidth
-//                    val accuracy = location.accuracy
                     val neighborCount = telephonyManager.allCellInfo.size
 
-
-
                     currentSignal = getRsrpSignalLabel(signal.dbm)
-
                     currentPCI = identity.pci.toString()
                     currentTAC = identity.tac.toString()
                     currentNCI = identity.nci.toString()
                     currentRSRP = signal.dbm.toString()
-
                     currentRSRQ = rsrq.replace(" dB", "")
                     currentSINR = snr.replace(" dB", "")
-
                     currentNeighborCount = neighborCount.toString()
-
 
                     val neighborDetails = StringBuilder()
 
                     for ((index, info) in telephonyManager.allCellInfo.withIndex()) {
-
                         when (info) {
-
                             is CellInfoNr -> {
                                 val id = info.cellIdentity as CellIdentityNr
                                 val sig = info.cellSignalStrength as CellSignalStrengthNr
@@ -636,7 +673,6 @@ class MainActivity : AppCompatActivity() {
                                 "NRARFCN: $nrarfcn\n" +
                                 "RSRQ: $rsrq\n" +
                                 "SINR: $snr\n" +
-//                                "Bandwidth: $bandwidth kHz\n" +
                                 "Time: $currentTime\n" +
                                 "Altitude: $currentAltitude m\n" +
                                 "Speed: $currentSpeed m/s\n" +
@@ -650,6 +686,10 @@ class MainActivity : AppCompatActivity() {
                     cellInfoText.text = "Cell Info: Not Available"
                 }
             }
+
+        } catch (e: Exception) {
+            Log.e("CellInfo", "getCellTowerInfo failed: ${e.message}", e)
+            cellInfoText.text = "Cell Info: Error reading data"
         }
     }
 

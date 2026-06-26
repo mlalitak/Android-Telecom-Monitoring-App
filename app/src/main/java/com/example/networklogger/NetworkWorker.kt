@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.core.app.NotificationCompat
+import android.content.pm.ServiceInfo
 
 
 class NetworkWorker(
@@ -52,14 +53,12 @@ class NetworkWorker(
         // Wrap setForeground in try-catch — don't let it kill the whole worker
         // On rooted phones, foreground service can be blocked by SELinux/Magisk
         // We try it but never let it crash the app
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            try {
-                setForeground(createForegroundInfo())
-                Log.d("NetworkWorker", "Foreground service started")
-            } catch (e: Exception) {
-                // Rooted phones may block this — safe to continue without it
-                Log.w("NetworkWorker", "Foreground service blocked (rooted device?): ${e.message}")
-            }
+        try {
+            setForeground(createForegroundInfo())
+            Log.d("NetworkWorker", "Foreground service started")
+        } catch (t: Throwable) {
+            Log.w("NetworkWorker", "Foreground service blocked: ${t.message}")
+            // Safe to continue — worker logs data without foreground service
         }
 
         return try {
@@ -93,14 +92,23 @@ class NetworkWorker(
             manager.createNotificationChannel(channel)
         }
 
-        val notification = androidx.core.app.NotificationCompat.Builder(applicationContext, channelId)
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
             .setContentTitle("NetworkLogger")
             .setContentText("Logging network data in background...")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .build()
 
-        return ForegroundInfo(1001, notification)
+        // Android 14+ requires explicit service type in ForegroundInfo
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ForegroundInfo(
+                1001,
+                notification,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            ForegroundInfo(1001, notification)
+        }
     }
 
     private fun logStorageInfo() {
