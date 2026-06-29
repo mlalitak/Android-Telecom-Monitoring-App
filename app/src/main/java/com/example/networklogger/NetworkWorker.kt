@@ -265,12 +265,15 @@ class NetworkWorker(
             val existingUri: Uri? = resolver.query(
                 collection,
                 arrayOf(MediaStore.Downloads._ID),
-                "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                "${MediaStore.Downloads.DISPLAY_NAME} = ?" +
+                        " AND ${MediaStore.Downloads.IS_PENDING} = 0",
                 arrayOf(fileName),
                 null
             )?.use { cursor ->
                 if (cursor.moveToFirst()) {
-                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                    val id = cursor.getLong(
+                        cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                    )
                     ContentUris.withAppendedId(collection, id)
                 } else null
             }
@@ -282,21 +285,18 @@ class NetworkWorker(
                 }
                 Log.d("CSV", "Background log appended to existing file")
             } else {
-                // File doesn't exist — create with header + first row
+                // File doesn't exist — create WITHOUT IS_PENDING
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, fileName)
                     put(MediaStore.Downloads.MIME_TYPE, "text/csv")
                     put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                    put(MediaStore.Downloads.IS_PENDING, 1)
+                    // NO IS_PENDING here
                 }
                 val uri = resolver.insert(collection, values)!!
                 resolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(header.toByteArray())
                     outputStream.write(logData.toByteArray())
                 }
-                values.clear()
-                values.put(MediaStore.Downloads.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
                 Log.d("CSV", "Background log created: $uri")
             }
 

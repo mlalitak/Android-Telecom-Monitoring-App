@@ -795,53 +795,48 @@ class MainActivity : AppCompatActivity() {
         try {
             val fileName = "network_logs.csv"
             val resolver = contentResolver
+            val collection = MediaStore.Downloads.getContentUri(
+                MediaStore.VOLUME_EXTERNAL_PRIMARY
+            )
 
-            // Check if file already exists in Downloads
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-
+            // Query for existing file
             val existingUri: Uri? = resolver.query(
                 collection,
                 arrayOf(MediaStore.Downloads._ID),
-                "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                "${MediaStore.Downloads.DISPLAY_NAME} = ?" +
+                        " AND ${MediaStore.Downloads.IS_PENDING} = 0",
                 arrayOf(fileName),
                 null
             )?.use { cursor ->
                 if (cursor.moveToFirst()) {
-                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                    val id = cursor.getLong(
+                        cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                    )
                     ContentUris.withAppendedId(collection, id)
                 } else null
             }
 
             if (existingUri != null) {
-                // File exists — append to it
+                // File exists — append directly, no IS_PENDING needed
                 resolver.openOutputStream(existingUri, "wa")?.use { outputStream ->
                     outputStream.write(logLine.toByteArray())
                 }
-                Log.d("CSV", "Appended to existing file: $existingUri")
+                Log.d("CSV", "Appended to: $existingUri")
             } else {
-                // File doesn't exist — create it with header + first row
+                // File does not exist — create WITHOUT IS_PENDING
                 val contentValues = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, fileName)
                     put(MediaStore.Downloads.MIME_TYPE, "text/csv")
                     put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                    put(MediaStore.Downloads.IS_PENDING, 1)
+                    // NO IS_PENDING here
                 }
-
                 val uri = resolver.insert(collection, contentValues)!!
-
                 resolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(header.toByteArray())
                     outputStream.write(logLine.toByteArray())
                 }
-
-                contentValues.clear()
-                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
-                resolver.update(uri, contentValues, null, null)
-
                 Log.d("CSV", "Created new file: $uri")
             }
-
-            Log.d("CSV", "Row saved: $logLine")
 
         } catch (e: Exception) {
             Log.e("CSV", "saveLog() failed: ${e.message}", e)
