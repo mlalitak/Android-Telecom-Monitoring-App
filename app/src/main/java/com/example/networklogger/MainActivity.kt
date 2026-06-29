@@ -16,16 +16,9 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-//import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-//import java.util.concurrent.TimeUnit
-//import androidx.work.OneTimeWorkRequestBuilder
 import android.content.Context
 import android.util.Log
-//import com.github.mikephil.charting.charts.LineChart
-//import com.github.mikephil.charting.data.Entry
-//import com.github.mikephil.charting.data.LineData
-//import com.github.mikephil.charting.data.LineDataSet
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.ExistingPeriodicWorkPolicy
 import java.util.concurrent.TimeUnit
@@ -35,13 +28,10 @@ import android.content.ContentValues
 import android.content.ContentUris
 import android.net.Uri
 import android.provider.MediaStore
-//import androidx.work.OutOfQuotaPolicy
 
 class MainActivity : AppCompatActivity() {
 
     lateinit var fusedLocationClient: FusedLocationProviderClient
-//    lateinit var telephonyManager: TelephonyManager
-
     private lateinit var locationText: TextView
     private lateinit var networkText: TextView
     private lateinit var signalText: TextView
@@ -57,16 +47,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var telephonyManager: TelephonyManager
 
-//    private lateinit var signalChart: LineChart
-
-
-
     private var currentLat = "N/A"
     private var currentLon = "N/A"
     private var currentSignal = "N/A"
-
-//    private var currentDbm = -100
-
     private var currentNetwork = "N/A"
     private var isLogging = false
 
@@ -84,10 +67,8 @@ class MainActivity : AppCompatActivity() {
     private var currentNeighborCount = "0"
     private var loggingStartTime = 0L
 
-//    private var chartX = 0f
 
     private val handler = Handler(Looper.getMainLooper())
-//    private val signalEntries = ArrayList<Entry>()
 
 
     private val logRunnable = object : Runnable {
@@ -105,25 +86,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
 
-//        val periodicWorkRequest =
-//            PeriodicWorkRequestBuilder<NetworkWorker>(
-//                15,
-//                TimeUnit.MINUTES
-//            ).build()
-//
-//        WorkManager.getInstance(this)
-//            .enqueue(periodicWorkRequest)
-
-//        val workRequest =
-//            OneTimeWorkRequestBuilder<NetworkWorker>()
-//                .build()
-//
-//        WorkManager.getInstance(this)
-//            .enqueue(workRequest)
-
-
-
-
         locationText = findViewById(R.id.locationText)
         networkText = findViewById(R.id.networkText)
         signalText = findViewById(R.id.signalText)
@@ -135,17 +97,6 @@ class MainActivity : AppCompatActivity() {
 
         backgroundLogPathText =
             findViewById(R.id.backgroundLogPathText)
-
-//        val downloadsFolder =
-//            getExternalFilesDir(null)
-
-//        val networkLogPath =
-//            File(downloadsFolder, "network_logs.csv").absolutePath
-//
-//        val backgroundLogPath =
-//            File(downloadsFolder, "background_logs.csv").absolutePath
-//
-//        val appFilesDir = getExternalFilesDir(null)
 
 
         loggingDurationText =
@@ -173,8 +124,6 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("RootCheck", "Device Status: $rootStatus")
 
-//        val dir = getExternalFilesDir(null)
-
         networkLogPathText.text =
             "network_logs.csv:\n/storage/emulated/0/Download/network_logs.csv"
 
@@ -193,8 +142,6 @@ class MainActivity : AppCompatActivity() {
                     "Logs are started",
                     Toast.LENGTH_SHORT
                 ).show()
-//                updateMeasurements()
-//                saveLog()
                 handler.post(logRunnable)
             }
         }
@@ -230,24 +177,7 @@ class MainActivity : AppCompatActivity() {
         requestPermissions()
         setupSignalListener()
         requestBatteryOptimizationExemption()
-//        showRealmeBatteryDialog()
         startBackgroundMonitoring()
-
-//        signalChart = findViewById(R.id.signalChart)
-//
-//        signalChart.description.isEnabled = false
-//
-//        signalChart.setTouchEnabled(true)
-//
-//        signalChart.setPinchZoom(true)
-//
-//        signalChart.axisRight.isEnabled = false
-//
-//        signalChart.xAxis.granularity = 1f
-//
-//        signalChart.axisLeft.axisMinimum = 0f
-//
-//        signalChart.axisLeft.axisMaximum = 4f
     }
 
 
@@ -270,41 +200,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
-
-//    private fun showRealmeBatteryDialog() {
-//        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-//        val shown = prefs.getBoolean("autostart_dialog_shown", false)
-//
-//        if (!shown) {
-//            try {
-//                android.app.AlertDialog.Builder(this)
-//                    .setTitle("Enable Background Logging")
-//                    .setMessage(
-//                        "For background_logs.csv to save properly:\n\n" +
-//                                "1. Go to Phone Settings\n" +
-//                                "2. Search 'Autostart'\n" +
-//                                "3. Enable Autostart for NetworkLogger\n\n" +
-//                                "Also go to Battery → App Battery Saver → Set NetworkLogger to 'No Restrictions'"
-//                    )
-//                    .setPositiveButton("Open Settings") { _, _ ->
-//                        try {
-//                            startActivity(
-//                                android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
-//                            )
-//                        } catch (e: Exception) {
-//                            Log.w("Dialog", "Could not open settings: ${e.message}")
-//                        }
-//                    }
-//                    .setNegativeButton("Later", null)
-//                    .show()
-//            } catch (e: Exception) {
-//                Log.w("Dialog", "Could not show dialog: ${e.message}")
-//            }
-//
-//            prefs.edit().putBoolean("autostart_dialog_shown", true).apply()
-//        }
-//    }
 
     private fun requestPermissions() {
         val permissions = arrayOf(
@@ -489,7 +384,6 @@ class MainActivity : AppCompatActivity() {
                     object : android.telephony.TelephonyCallback(),
                         android.telephony.TelephonyCallback.SignalStrengthsListener {
                         override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
-//                            updateSignalChart(currentDbm)
                             if (!isLogging) {
                                 val level = signalStrength.level
                                 signalText.text = "Signal: " + when (level) {
@@ -512,7 +406,6 @@ class MainActivity : AppCompatActivity() {
                         @Suppress("DEPRECATION")
                         override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
                             super.onSignalStrengthsChanged(signalStrength)
-//                            updateSignalChart(currentDbm)
                             if (!isLogging) {
                                 val level = signalStrength.level
                                 signalText.text = "Signal: " + when (level) {
@@ -571,7 +464,6 @@ class MainActivity : AppCompatActivity() {
                     val rsrp = signal.rsrp
                     val rsrq = if (signal.rsrq == Int.MAX_VALUE) "N/A" else "${signal.rsrq} dB"
 
-//                    currentDbm = rsrp
                     currentSignal = getRsrpSignalLabel(signal.rsrp)
 
                     currentPCI = identity.pci.toString()
@@ -595,8 +487,6 @@ class MainActivity : AppCompatActivity() {
                 is CellInfoNr -> {
                     val identity = cellInfo.cellIdentity as CellIdentityNr
                     val signal = cellInfo.cellSignalStrength as CellSignalStrengthNr
-
-//                    currentDbm = signal.dbm
 
                     val mcc = identity.mccString
                     val mnc = identity.mncString
@@ -700,49 +590,6 @@ class MainActivity : AppCompatActivity() {
             else         -> "Very Weak"
         }
     }
-
-
-
-
-//    private fun updateSignalChart(dbm: Int) {
-//
-//        signalEntries.add(
-//            Entry(chartX, dbm.toFloat())
-//        )
-//
-//        chartX++
-//
-//        val dataSet = LineDataSet(
-//            signalEntries,
-//            "Signal dBm"
-//        )
-//
-//        dataSet.lineWidth = 2f
-//
-//        dataSet.circleRadius = 2f
-//
-//        dataSet.setDrawValues(false)
-//
-//        val lineData = LineData(dataSet)
-//
-//        signalChart.data = lineData
-//
-//        signalChart.description.isEnabled = false
-//
-//        signalChart.axisRight.isEnabled = false
-//
-//        signalChart.axisLeft.axisMinimum = -130f
-//
-//        signalChart.axisLeft.axisMaximum = -50f
-//
-//        signalChart.setVisibleXRangeMaximum(20f)
-//
-//        signalChart.moveViewToX(chartX)
-//
-//        signalChart.invalidate()
-//    }
-
-
     private fun startBackgroundMonitoring() {
         // Run ONCE immediately on launch — creates background_logs.csv right away
         val immediateRequest = androidx.work.OneTimeWorkRequestBuilder<NetworkWorker>()
@@ -799,7 +646,6 @@ class MainActivity : AppCompatActivity() {
                 MediaStore.VOLUME_EXTERNAL_PRIMARY
             )
 
-            // Query for existing file
             val existingUri: Uri? = resolver.query(
                 collection,
                 arrayOf(MediaStore.Downloads._ID),
@@ -817,29 +663,46 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (existingUri != null) {
-                // File exists — append directly, no IS_PENDING needed
-                resolver.openOutputStream(existingUri, "wa")?.use { outputStream ->
-                    outputStream.write(logLine.toByteArray())
+                val stream = resolver.openOutputStream(existingUri, "wa")
+                if (stream != null) {
+                    stream.use { it.write(logLine.toByteArray()) }
+                    Log.d("CSV", "Appended to: $existingUri")
+                } else {
+                    // Stream is null — file entry is broken, delete and recreate
+                    Log.w("CSV", "Stream null for existing file, recreating")
+                    resolver.delete(existingUri, null, null)
+                    createNewCsvFile(resolver, collection, fileName, header, logLine)
                 }
-                Log.d("CSV", "Appended to: $existingUri")
             } else {
-                // File does not exist — create WITHOUT IS_PENDING
-                val contentValues = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, "text/csv")
-                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                    // NO IS_PENDING here
-                }
-                val uri = resolver.insert(collection, contentValues)!!
-                resolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(header.toByteArray())
-                    outputStream.write(logLine.toByteArray())
-                }
-                Log.d("CSV", "Created new file: $uri")
+                createNewCsvFile(resolver, collection, fileName, header, logLine)
             }
 
         } catch (e: Exception) {
             Log.e("CSV", "saveLog() failed: ${e.message}", e)
+        }
+    }
+
+    private fun createNewCsvFile(
+        resolver: android.content.ContentResolver,
+        collection: Uri,
+        fileName: String,
+        header: String,
+        firstRow: String
+    ) {
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+        }
+        val uri = resolver.insert(collection, contentValues)
+        if (uri != null) {
+            resolver.openOutputStream(uri)?.use { outputStream ->
+                outputStream.write(header.toByteArray())
+                outputStream.write(firstRow.toByteArray())
+            }
+            Log.d("CSV", "Created new file: $uri")
+        } else {
+            Log.e("CSV", "Failed to insert new file into MediaStore")
         }
     }
 

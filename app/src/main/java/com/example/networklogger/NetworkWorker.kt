@@ -13,8 +13,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.telephony.TelephonyManager
-//import android.telephony.PhoneStateListener
-//import android.telephony.SignalStrength
 import android.content.ContentValues
 import android.content.ContentUris
 import android.net.Uri
@@ -24,6 +22,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.core.app.NotificationCompat
 import android.content.pm.ServiceInfo
+import androidx.appcompat.app.AppCompatActivity
 
 
 class NetworkWorker(
@@ -251,17 +250,22 @@ class NetworkWorker(
     private fun saveBackgroundLog() {
         try {
             val fileName = "background_logs.csv"
-            val header = "Time,Battery,NetworkType,Operator,SignalLevel,TotalStorage,UsedStorage,FreeStorage,TotalRAM,UsedRAM,AvailableRAM\n"
+            val header = "Time,Battery,NetworkType,Operator,SignalLevel," +
+                    "TotalStorage,UsedStorage,FreeStorage,TotalRAM,UsedRAM,AvailableRAM\n"
 
-            val timeStamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            val timeStamp = SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
+            ).format(Date())
 
             val logData = "$timeStamp,$batteryPercent,$networkType,$operatorName,$signalLevel," +
-                    "$totalStorageGB,$usedStorageGB,$freeStorageGB,$totalRamGB,$usedRamGB,$availableRamGB\n"
+                    "$totalStorageGB,$usedStorageGB,$freeStorageGB," +
+                    "$totalRamGB,$usedRamGB,$availableRamGB\n"
 
             val resolver = applicationContext.contentResolver
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val collection = MediaStore.Downloads.getContentUri(
+                MediaStore.VOLUME_EXTERNAL_PRIMARY
+            )
 
-            // Check if file already exists in Downloads
             val existingUri: Uri? = resolver.query(
                 collection,
                 arrayOf(MediaStore.Downloads._ID),
@@ -279,29 +283,46 @@ class NetworkWorker(
             }
 
             if (existingUri != null) {
-                // File exists — append new row
-                resolver.openOutputStream(existingUri, "wa")?.use { outputStream ->
-                    outputStream.write(logData.toByteArray())
+                val stream = resolver.openOutputStream(existingUri, "wa")
+                if (stream != null) {
+                    stream.use { it.write(logData.toByteArray()) }
+                    Log.d("CSV", "Background log appended")
+                } else {
+                    // Broken entry — delete and recreate
+                    Log.w("CSV", "Stream null, recreating background log")
+                    resolver.delete(existingUri, null, null)
+                    createNewBackgroundFile(resolver, collection, fileName, header, logData)
                 }
-                Log.d("CSV", "Background log appended to existing file")
             } else {
-                // File doesn't exist — create WITHOUT IS_PENDING
-                val values = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, "text/csv")
-                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                    // NO IS_PENDING here
-                }
-                val uri = resolver.insert(collection, values)!!
-                resolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(header.toByteArray())
-                    outputStream.write(logData.toByteArray())
-                }
-                Log.d("CSV", "Background log created: $uri")
+                createNewBackgroundFile(resolver, collection, fileName, header, logData)
             }
 
         } catch (e: Exception) {
             Log.e("CSV", "Error saving background CSV: ${e.message}", e)
+        }
+    }
+
+    private fun createNewBackgroundFile(
+        resolver: android.content.ContentResolver,
+        collection: Uri,
+        fileName: String,
+        header: String,
+        firstRow: String
+    ) {
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+            put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+        }
+        val uri = resolver.insert(collection, values)
+        if (uri != null) {
+            resolver.openOutputStream(uri)?.use { outputStream ->
+                outputStream.write(header.toByteArray())
+                outputStream.write(firstRow.toByteArray())
+            }
+            Log.d("CSV", "Background log created: $uri")
+        } else {
+            Log.e("CSV", "Failed to insert background log into MediaStore")
         }
     }
 }

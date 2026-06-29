@@ -68,14 +68,6 @@
             android:layout_height="wrap_content"
             android:text="Background Log Path"/>
 
-
-<!--        <com.github.mikephil.charting.charts.LineChart-->
-<!--            android:id="@+id/signalChart"-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="300dp"/>-->
-
-
-
         <Button
             android:id="@+id/startButton"
             android:text="Start Logging"
