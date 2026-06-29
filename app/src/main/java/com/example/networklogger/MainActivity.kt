@@ -416,31 +416,25 @@ class MainActivity : AppCompatActivity() {
     private fun getLocation() {
         if (ContextCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            // Request fresh location update instead of cached lastLocation
-            val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
-                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 5000L
-            ).build()
+            ) != PackageManager.PERMISSION_GRANTED
+        ) return
 
-            fusedLocationClient.requestLocationUpdates(
-                locationRequest,
-                object : com.google.android.gms.location.LocationCallback() {
-                    override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
-                        result.lastLocation?.let { location ->
-                            currentLat = location.latitude.toString()
-                            currentLon = location.longitude.toString()
-                            currentAltitude = location.altitude.toString()
-                            currentSpeed = location.speed.toString()
-                            currentAccuracy = location.accuracy.toString()
-                            locationText.text = "Location: $currentLat , $currentLon"
-                            // Remove callback after getting one fresh reading
-                            fusedLocationClient.removeLocationUpdates(this)
-                        }
-                    }
-                },
-                Looper.getMainLooper()
-            )
+        // Use getCurrentLocation() — only fires once, no background trigger
+        fusedLocationClient.getCurrentLocation(
+            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+            null
+        ).addOnSuccessListener { location ->
+            if (location != null) {
+                currentLat = "%.7f".format(location.latitude)
+                currentLon = "%.7f".format(location.longitude)
+                currentAltitude = "%.1f".format(location.altitude)
+                currentSpeed = "%.2f".format(location.speed)
+                currentAccuracy = "%.1f".format(location.accuracy)
+                locationText.text = "Location: $currentLat , $currentLon"
+                Log.d("GPS", "Location: $currentLat, $currentLon")
+            }
+        }.addOnFailureListener { e ->
+            Log.w("GPS", "Location fetch failed: ${e.message}")
         }
     }
 
