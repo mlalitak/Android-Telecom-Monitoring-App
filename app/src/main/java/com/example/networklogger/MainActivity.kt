@@ -230,7 +230,7 @@ class MainActivity : AppCompatActivity() {
         requestPermissions()
         setupSignalListener()
         requestBatteryOptimizationExemption()
-        showRealmeBatteryDialog()
+//        showRealmeBatteryDialog()
         startBackgroundMonitoring()
 
 //        signalChart = findViewById(R.id.signalChart)
@@ -272,39 +272,39 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun showRealmeBatteryDialog() {
-        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        val shown = prefs.getBoolean("autostart_dialog_shown", false)
-
-        if (!shown) {
-            try {
-                android.app.AlertDialog.Builder(this)
-                    .setTitle("Enable Background Logging")
-                    .setMessage(
-                        "For background_logs.csv to save properly:\n\n" +
-                                "1. Go to Phone Settings\n" +
-                                "2. Search 'Autostart'\n" +
-                                "3. Enable Autostart for NetworkLogger\n\n" +
-                                "Also go to Battery → App Battery Saver → Set NetworkLogger to 'No Restrictions'"
-                    )
-                    .setPositiveButton("Open Settings") { _, _ ->
-                        try {
-                            startActivity(
-                                android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
-                            )
-                        } catch (e: Exception) {
-                            Log.w("Dialog", "Could not open settings: ${e.message}")
-                        }
-                    }
-                    .setNegativeButton("Later", null)
-                    .show()
-            } catch (e: Exception) {
-                Log.w("Dialog", "Could not show dialog: ${e.message}")
-            }
-
-            prefs.edit().putBoolean("autostart_dialog_shown", true).apply()
-        }
-    }
+//    private fun showRealmeBatteryDialog() {
+//        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+//        val shown = prefs.getBoolean("autostart_dialog_shown", false)
+//
+//        if (!shown) {
+//            try {
+//                android.app.AlertDialog.Builder(this)
+//                    .setTitle("Enable Background Logging")
+//                    .setMessage(
+//                        "For background_logs.csv to save properly:\n\n" +
+//                                "1. Go to Phone Settings\n" +
+//                                "2. Search 'Autostart'\n" +
+//                                "3. Enable Autostart for NetworkLogger\n\n" +
+//                                "Also go to Battery → App Battery Saver → Set NetworkLogger to 'No Restrictions'"
+//                    )
+//                    .setPositiveButton("Open Settings") { _, _ ->
+//                        try {
+//                            startActivity(
+//                                android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+//                            )
+//                        } catch (e: Exception) {
+//                            Log.w("Dialog", "Could not open settings: ${e.message}")
+//                        }
+//                    }
+//                    .setNegativeButton("Later", null)
+//                    .show()
+//            } catch (e: Exception) {
+//                Log.w("Dialog", "Could not show dialog: ${e.message}")
+//            }
+//
+//            prefs.edit().putBoolean("autostart_dialog_shown", true).apply()
+//        }
+//    }
 
     private fun requestPermissions() {
         val permissions = arrayOf(
