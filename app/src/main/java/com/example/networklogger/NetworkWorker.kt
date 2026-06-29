@@ -26,7 +26,6 @@ import androidx.core.app.NotificationCompat
 import android.content.pm.ServiceInfo
 
 
-
 class NetworkWorker(
     context: Context,
     workerParams: WorkerParameters
@@ -217,19 +216,6 @@ class NetworkWorker(
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {
             try {
-                // Force a fresh cell info update before reading
-                telephonyManager.requestCellInfoUpdate(
-                    applicationContext.mainExecutor,
-                    object : TelephonyManager.CellInfoCallback() {
-                        override fun onCellInfo(cellInfoList: List<android.telephony.CellInfo>) {
-                            // fresh data available but async — handled below
-                        }
-                        override fun onError(errorCode: Int, detail: Throwable?) {}
-                    }
-                )
-                // Small pause to let modem respond
-                Thread.sleep(300)
-
                 val cellInfos = telephonyManager.allCellInfo
                 if (!cellInfos.isNullOrEmpty()) {
                     when (val cell = cellInfos[0]) {
