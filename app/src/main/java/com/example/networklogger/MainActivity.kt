@@ -22,10 +22,10 @@ import androidx.work.WorkManager
 //import androidx.work.OneTimeWorkRequestBuilder
 import android.content.Context
 import android.util.Log
-import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.data.Entry
-import com.github.mikephil.charting.data.LineData
-import com.github.mikephil.charting.data.LineDataSet
+//import com.github.mikephil.charting.charts.LineChart
+//import com.github.mikephil.charting.data.Entry
+//import com.github.mikephil.charting.data.LineData
+//import com.github.mikephil.charting.data.LineDataSet
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.ExistingPeriodicWorkPolicy
 import java.util.concurrent.TimeUnit
@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var telephonyManager: TelephonyManager
 
-    private lateinit var signalChart: LineChart
+//    private lateinit var signalChart: LineChart
 
 
 
@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity() {
     private var currentLon = "N/A"
     private var currentSignal = "N/A"
 
-    private var currentDbm = -100
+//    private var currentDbm = -100
 
     private var currentNetwork = "N/A"
     private var isLogging = false
@@ -84,10 +84,10 @@ class MainActivity : AppCompatActivity() {
     private var currentNeighborCount = "0"
     private var loggingStartTime = 0L
 
-    private var chartX = 0f
+//    private var chartX = 0f
 
     private val handler = Handler(Looper.getMainLooper())
-    private val signalEntries = ArrayList<Entry>()
+//    private val signalEntries = ArrayList<Entry>()
 
 
     private val logRunnable = object : Runnable {
@@ -233,21 +233,21 @@ class MainActivity : AppCompatActivity() {
         showRealmeBatteryDialog()
         startBackgroundMonitoring()
 
-        signalChart = findViewById(R.id.signalChart)
-
-        signalChart.description.isEnabled = false
-
-        signalChart.setTouchEnabled(true)
-
-        signalChart.setPinchZoom(true)
-
-        signalChart.axisRight.isEnabled = false
-
-        signalChart.xAxis.granularity = 1f
-
-        signalChart.axisLeft.axisMinimum = 0f
-
-        signalChart.axisLeft.axisMaximum = 4f
+//        signalChart = findViewById(R.id.signalChart)
+//
+//        signalChart.description.isEnabled = false
+//
+//        signalChart.setTouchEnabled(true)
+//
+//        signalChart.setPinchZoom(true)
+//
+//        signalChart.axisRight.isEnabled = false
+//
+//        signalChart.xAxis.granularity = 1f
+//
+//        signalChart.axisLeft.axisMinimum = 0f
+//
+//        signalChart.axisLeft.axisMaximum = 4f
     }
 
 
@@ -495,7 +495,7 @@ class MainActivity : AppCompatActivity() {
                     object : android.telephony.TelephonyCallback(),
                         android.telephony.TelephonyCallback.SignalStrengthsListener {
                         override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
-                            updateSignalChart(currentDbm)
+//                            updateSignalChart(currentDbm)
                             if (!isLogging) {
                                 val level = signalStrength.level
                                 signalText.text = "Signal: " + when (level) {
@@ -518,7 +518,7 @@ class MainActivity : AppCompatActivity() {
                         @Suppress("DEPRECATION")
                         override fun onSignalStrengthsChanged(signalStrength: SignalStrength) {
                             super.onSignalStrengthsChanged(signalStrength)
-                            updateSignalChart(currentDbm)
+//                            updateSignalChart(currentDbm)
                             if (!isLogging) {
                                 val level = signalStrength.level
                                 signalText.text = "Signal: " + when (level) {
@@ -577,7 +577,7 @@ class MainActivity : AppCompatActivity() {
                     val rsrp = signal.rsrp
                     val rsrq = if (signal.rsrq == Int.MAX_VALUE) "N/A" else "${signal.rsrq} dB"
 
-                    currentDbm = rsrp
+//                    currentDbm = rsrp
                     currentSignal = getRsrpSignalLabel(signal.rsrp)
 
                     currentPCI = identity.pci.toString()
@@ -602,7 +602,7 @@ class MainActivity : AppCompatActivity() {
                     val identity = cellInfo.cellIdentity as CellIdentityNr
                     val signal = cellInfo.cellSignalStrength as CellSignalStrengthNr
 
-                    currentDbm = signal.dbm
+//                    currentDbm = signal.dbm
 
                     val mcc = identity.mccString
                     val mnc = identity.mncString
@@ -710,43 +710,43 @@ class MainActivity : AppCompatActivity() {
 
 
 
-    private fun updateSignalChart(dbm: Int) {
-
-        signalEntries.add(
-            Entry(chartX, dbm.toFloat())
-        )
-
-        chartX++
-
-        val dataSet = LineDataSet(
-            signalEntries,
-            "Signal dBm"
-        )
-
-        dataSet.lineWidth = 2f
-
-        dataSet.circleRadius = 2f
-
-        dataSet.setDrawValues(false)
-
-        val lineData = LineData(dataSet)
-
-        signalChart.data = lineData
-
-        signalChart.description.isEnabled = false
-
-        signalChart.axisRight.isEnabled = false
-
-        signalChart.axisLeft.axisMinimum = -130f
-
-        signalChart.axisLeft.axisMaximum = -50f
-
-        signalChart.setVisibleXRangeMaximum(20f)
-
-        signalChart.moveViewToX(chartX)
-
-        signalChart.invalidate()
-    }
+//    private fun updateSignalChart(dbm: Int) {
+//
+//        signalEntries.add(
+//            Entry(chartX, dbm.toFloat())
+//        )
+//
+//        chartX++
+//
+//        val dataSet = LineDataSet(
+//            signalEntries,
+//            "Signal dBm"
+//        )
+//
+//        dataSet.lineWidth = 2f
+//
+//        dataSet.circleRadius = 2f
+//
+//        dataSet.setDrawValues(false)
+//
+//        val lineData = LineData(dataSet)
+//
+//        signalChart.data = lineData
+//
+//        signalChart.description.isEnabled = false
+//
+//        signalChart.axisRight.isEnabled = false
+//
+//        signalChart.axisLeft.axisMinimum = -130f
+//
+//        signalChart.axisLeft.axisMaximum = -50f
+//
+//        signalChart.setVisibleXRangeMaximum(20f)
+//
+//        signalChart.moveViewToX(chartX)
+//
+//        signalChart.invalidate()
+//    }
 
 
     private fun startBackgroundMonitoring() {
