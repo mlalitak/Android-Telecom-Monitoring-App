@@ -66,7 +66,7 @@ NetworkLogger/
 ├── README.md
 ├── CHANGELOG.md
 ├── ROADMAP.md
-├── MEMBERS.md
+├── CONTRIBUTING.md
 │
 ├── app/
 │   └── src/main/
